@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --extra examples
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format
+        run: uv run ruff format --check .
+
+      - name: Types
+        run: uv run mypy
+
+      - name: Tests
+        run: uv run pytest -q
+
+      - name: The example notebooks still run
+        run: uv run pytest tests/docs -q
+
+      - name: The wheel carries every source file and py.typed
+        run: |
+          uv build
+          uv run python - <<'PY'
+          import pathlib, sys, zipfile
+
+          wheel = next(pathlib.Path("dist").glob("*.whl"))
+          shipped = set(zipfile.ZipFile(wheel).namelist())
+          expected = {
+              p.relative_to("src").as_posix()
+              for p in pathlib.Path("src").rglob("*.py")
+          } | {"simplyinvest/py.typed"}
+          missing = sorted(expected - shipped)
+          if missing:
+              sys.exit(f"the wheel is missing: {missing}")
+          print(f"{len(expected)} files present in {wheel.name}")
+          PY

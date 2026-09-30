@@ -1,0 +1,34 @@
+{
+  "alternatives": {
+    "balloon": {
+      "breakdown": {
+        "financing/instalment": -31126.675974,
+        "terminal/residual": 7353.530963
+      },
+      "discounted_payback": "None",
+      "eac": 6034.789747,
+      "irr": -0.287558,
+      "npv": -23773.145011,
+      "payback": "None",
+      "pv_of_costs": 31126.675974
+    },
+    "cash": {
+      "breakdown": {
+        "capital/purchase": -31500.0,
+        "terminal/residual": 7353.530963
+      },
+      "discounted_payback": "None",
+      "eac": 6107.169207,
+      "irr": -0.18,
+      "npv": -24146.469037,
+      "payback": "None",
+      "pv_of_costs": 31500.0
+    }
+  },
+  "constraints": [
+    "balloon: A balloon of 12,000.00 falls due after 3 years; it must be refinanced, settled from savings, or met by selling the asset."
+  ],
+  "margin": 373.324026,
+  "material": true,
+  "verdict": "balloon is better than cash by 373.32 in present value."
+}

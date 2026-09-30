@@ -1,0 +1,63 @@
+{
+  "robust": false,
+  "scenarios": {
+    "both": {
+      "buy": -69979.071255,
+      "hire": -63500.152474
+    },
+    "central": {
+      "buy": -55276.348297,
+      "hire": -82983.153801
+    },
+    "cheap hire": {
+      "buy": -55276.348297,
+      "hire": -63500.152474
+    },
+    "dear machine": {
+      "buy": -69979.071255,
+      "hire": -82983.153801
+    }
+  },
+  "tornado": {
+    "buy": [
+      {
+        "high": -61417.61372,
+        "label": "price",
+        "low": -49404.81635
+      },
+      {
+        "high": -55788.968923,
+        "label": "setup",
+        "low": -54763.727671
+      },
+      {
+        "high": -55276.348297,
+        "label": "hire_rate",
+        "low": -55276.348297
+      }
+    ],
+    "hire": [
+      {
+        "high": -91305.977418,
+        "label": "hire_rate",
+        "low": -74660.330183
+      },
+      {
+        "high": -82983.153801,
+        "label": "price",
+        "low": -82983.153801
+      },
+      {
+        "high": -82983.153801,
+        "label": "setup",
+        "low": -82983.153801
+      }
+    ]
+  },
+  "winners": {
+    "both": "hire",
+    "central": "buy",
+    "cheap hire": "buy",
+    "dear machine": "buy"
+  }
+}

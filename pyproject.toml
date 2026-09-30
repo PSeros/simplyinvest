@@ -1,0 +1,129 @@
+[project]
+name = "simplyinvest"
+version = "0.1.0"
+description = "Domain-agnostic investment appraisal: NPV, IRR, financing, tax and uncertainty, with pluggable domains"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "PSeros", email = "konto.schlicht@posteo.de" }]
+keywords = [
+    "investment-appraisal",
+    "capital-budgeting",
+    "npv",
+    "irr",
+    "monte-carlo",
+    "photovoltaics",
+    "total-cost-of-ownership",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Typing :: Typed",
+]
+requires-python = ">=3.13"
+dependencies = ["numpy>=2.1"]
+
+[project.optional-dependencies]
+car = []                                  # pure Python; the extra exists for symmetry and discoverability
+pv = ["pvlib>=0.11", "pandas>=2.2"]
+viz = ["matplotlib>=3.9"]
+frames = ["pandas>=2.2"]
+excel = ["openpyxl>=3.1"]
+all = ["simplyinvest[car,pv,viz,frames,excel]"]
+examples = [
+    "ipykernel>=7.4.0",
+    "jupyterlab>=4.6.4",
+    "nbclient>=0.11.0",
+    "nbformat>=5.11.1",
+    "simplyinvest[frames,viz]",
+]
+
+[project.urls]
+Repository = "https://github.com/PSeros/simplyinvest"
+
+# No [project.scripts]: the primary interface is the Python API.
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "hypothesis>=6.112",
+    "ruff>=0.7",
+    "mypy>=1.13",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.6,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "simplyinvest"
+
+[tool.uv.sources]
+simplyinvest = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "I", "UP", "B", "SIM", "RUF", "N", "C4", "PT", "ANN",
+    "D", "NPY", "FBT", "TID", "ERA", "PL",
+]
+ignore = [
+    "RUF001", "RUF002", "RUF003",  # ambiguous unicode: German terms appear in docstrings
+    "ANN401",                      # Any is deliberate in the lens walker
+    "D203", "D213",                # mutually exclusive with the chosen convention
+    "D105",                        # magic methods: the name is the documentation
+    "PLR0913",                     # financial constructors legitimately take many arguments
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["simplyinvest"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Relative within a scope, absolute across one: an import that crosses a layer
+# boundary should say so in full.  (TC is deliberately not selected — dataclass
+# field annotations and doctests both need their names at runtime, and the
+# lazy-import guarantee is enforced by tests/architecture/test_lazy_imports.py.)
+ban-relative-imports = "parents"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "D", "PLR2004", "FBT", "S101"]
+"examples/**" = ["ANN", "D", "ERA", "T201"]
+"src/simplyinvest/**/__init__.py" = ["F401"]
+
+[tool.mypy]
+strict = true
+warn_unreachable = true
+files = ["src"]
+# `domain.require(party, SomeProtocol)` narrows a Party to the facts a rule needs,
+# and passing a protocol class to a `type[P]` parameter is what that call is for.
+# mypy has no annotation for "a protocol class", so the check is off package-wide.
+disable_error_code = ["type-abstract"]
+
+[[tool.mypy.overrides]]
+module = ["pvlib.*", "matplotlib.*", "openpyxl.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests/architecture", "tests/golden"]
+addopts = ["--strict-markers", "--strict-config", "--import-mode=importlib"]
+markers = [
+    "golden: frozen numeric regression; fails rather than updates",
+    "network: requires network access",
+    "notebook: executes an example notebook end to end",
+    "slow: Monte Carlo at full trial counts",
+]
+filterwarnings = ["error", "default::DeprecationWarning"]
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:", "@overload", "raise NotImplementedError"]

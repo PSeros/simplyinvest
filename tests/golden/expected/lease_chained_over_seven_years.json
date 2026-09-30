@@ -1,0 +1,36 @@
+{
+  "alternatives": {
+    "buy": {
+      "breakdown": {
+        "capital/purchase": -48000.0,
+        "terminal/residual": 6407.226562
+      },
+      "discounted_payback": "None",
+      "eac": 7997.261378,
+      "irr": -0.22,
+      "npv": -41592.773438,
+      "payback": "None",
+      "pv_of_costs": 48000.0
+    },
+    "lease": {
+      "breakdown": {
+        "financing/lease_initial": -9906.167395,
+        "financing/lease_rent": -74766.15251
+      },
+      "discounted_payback": "None",
+      "eac": 14107.22237,
+      "irr": null,
+      "npv": -84672.319905,
+      "payback": "None",
+      "pv_of_costs": 84672.319905
+    }
+  },
+  "constraints": [
+    "lease: The asset is never owned: 3 contract(s) of 3 years cover the horizon, and nothing is left at the end.",
+    "lease: Renewal terms beyond the first contract are assumed, not agreed (each 6.0% dearer than the last).",
+    "lease: The final contract is truncated at the horizon; in practice it would run to its full term."
+  ],
+  "margin": 43079.546467,
+  "material": true,
+  "verdict": "buy is better than lease by 43,079.55 in present value."
+}

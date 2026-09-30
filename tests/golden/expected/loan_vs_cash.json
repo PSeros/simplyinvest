@@ -1,0 +1,38 @@
+{
+  "alternatives": {
+    "cash": {
+      "breakdown": {
+        "capital/purchase": -86000.0,
+        "capital/setup": -2400.0,
+        "terminal/residual": 11898.572954
+      },
+      "discounted_payback": "None",
+      "eac": 13677.408325,
+      "irr": -0.182816,
+      "npv": -76501.427046,
+      "payback": "None",
+      "pv_of_costs": 88400.0
+    },
+    "loan": {
+      "breakdown": {
+        "capital/down_payment": -15000.0,
+        "capital/setup": -2400.0,
+        "financing/fees": -450.0,
+        "financing/instalment": -73485.178119,
+        "terminal/residual": 11898.572954
+      },
+      "discounted_payback": "None",
+      "eac": 14131.544407,
+      "irr": -0.272716,
+      "npv": -79436.605165,
+      "payback": "None",
+      "pv_of_costs": 91335.178119
+    }
+  },
+  "constraints": [
+    "loan: Borrowing at 6.50% against a discount rate of 5.00%: the loan destroys value relative to paying cash."
+  ],
+  "margin": 2935.178119,
+  "material": true,
+  "verdict": "cash is better than loan by 2,935.18 in present value."
+}
