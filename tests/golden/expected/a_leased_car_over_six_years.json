@@ -1,0 +1,45 @@
+{
+  "alternatives": {
+    "buy": {
+      "breakdown": {
+        "capital/purchase": -38000.0,
+        "operating/circulation_tax": -1120.88805,
+        "operating/energy": -13317.226083,
+        "operating/insurance": -3843.044742,
+        "operating/maintenance": -2882.283556,
+        "terminal/residual": 10550.165615
+      },
+      "discounted_payback": "None",
+      "eac": 11236.316572,
+      "irr": -0.317024,
+      "npv": -48613.276816,
+      "payback": "None",
+      "pv_of_costs": 58902.309234
+    },
+    "lease": {
+      "breakdown": {
+        "financing/lease_initial": -6215.475649,
+        "financing/lease_rent": -28253.662476,
+        "financing/mileage_settlement": -1813.655755,
+        "operating/circulation_tax": -1120.88805,
+        "operating/energy": -13317.226083,
+        "operating/insurance": -3843.044742,
+        "operating/maintenance": -2882.283556
+      },
+      "discounted_payback": "None",
+      "eac": 10958.553331,
+      "irr": null,
+      "npv": -57446.236311,
+      "payback": "None",
+      "pv_of_costs": 57446.236311
+    }
+  },
+  "constraints": [
+    "lease: The asset is never owned: 2 contract(s) of 3 years cover the horizon, and nothing is left at the end.",
+    "lease: Renewal terms beyond the first contract are assumed, not agreed (each 6.0% dearer than the last).",
+    "lease: Distance over 15,000 km a year is charged at 0.12 per km at the end of each contract."
+  ],
+  "margin": 8832.959495,
+  "material": true,
+  "verdict": "buy is better than lease by 8,832.96 in present value."
+}

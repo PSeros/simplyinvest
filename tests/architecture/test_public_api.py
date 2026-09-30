@@ -11,6 +11,7 @@ import simplyinvest
 #: Every scope that publishes a surface of its own.
 SCOPES = (
     "appraisal",
+    "car",
     "cashflow",
     "domain",
     "errors",

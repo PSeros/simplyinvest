@@ -1,0 +1,46 @@
+{
+  "alternatives": {
+    "electric": {
+      "breakdown": {
+        "capital/purchase": -42000.0,
+        "capital/setup": -1400.0,
+        "incentive/ghg_quota": 2105.907657,
+        "incentive/purchase_premium": 4455.879512,
+        "incentive/tax_exemption": 1369.946212,
+        "operating/circulation_tax": -1369.946212,
+        "operating/energy": -8241.225252,
+        "operating/insurance": -5936.433586,
+        "operating/maintenance": -2663.784301,
+        "terminal/residual": 9034.474543
+      },
+      "discounted_payback": "None",
+      "eac": 8356.336864,
+      "irr": null,
+      "npv": -44645.181427,
+      "payback": "None",
+      "pv_of_costs": 58658.912619
+    },
+    "petrol": {
+      "breakdown": {
+        "capital/purchase": -33500.0,
+        "operating/circulation_tax": -1446.054335,
+        "operating/energy": -15597.107448,
+        "operating/insurance": -4870.919865,
+        "operating/maintenance": -4718.703619,
+        "terminal/residual": 8679.626365
+      },
+      "discounted_payback": "None",
+      "eac": 8527.230829,
+      "irr": -0.328843,
+      "npv": -51453.158902,
+      "payback": "None",
+      "pv_of_costs": 59858.535646
+    }
+  },
+  "constraints": [
+    "electric: The purchase premium requires the vehicle to be held for 3 years from first registration; disposing earlier triggers repayment."
+  ],
+  "margin": 6807.977475,
+  "material": true,
+  "verdict": "electric is better than petrol by 6,807.98 in present value."
+}

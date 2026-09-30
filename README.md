@@ -234,14 +234,118 @@ A `switch_point` names which alternative leads on each side rather than handing
 back a bare number to be read the wrong way round. A mistyped `ref` path fails
 where it was typed, naming the fields that do exist, rather than inside trial 417.
 
+## Vehicles
+
+`simplyinvest.car` supplies the distance quantity `"km"`, the carriers that
+price it, and the German incentives that attach to a purchase. Nothing in the
+core knows any of it.
+
+```python
+from datetime import date
+
+from simplyinvest import Alternative, GeometricDecline, Term, Timeline, compare
+from simplyinvest.car import (
+    CarOperating,
+    Electricity,
+    Household,
+    Mileage,
+    Petrol,
+    Propulsion,
+    Vehicle,
+)
+from simplyinvest.car.incentives import (
+    CirculationTaxExemption,
+    GhgQuota,
+    PurchasePremium,
+)
+from simplyinvest.financing import CashPurchase
+
+electric = Vehicle(
+    name="electric",
+    price=42_000,
+    propulsion=Propulsion.BEV,
+    # Consumption is measured at the battery; the loss is billed at the meter.
+    energy=Electricity(
+        consumption=17.5, price=0.31, public_price=0.55, home_share=0.8, charging_loss=0.10
+    ),
+    residual=GeometricDecline(0.15),
+    insurance=780,
+    maintenance=350,
+    circulation_tax=180,
+    infrastructure_cost=1_400,
+    first_registration=date(2026, 4, 1),
+)
+petrol = Vehicle(
+    name="petrol",
+    price=33_500,
+    propulsion=Propulsion.ICE,
+    energy=Petrol(consumption=6.4, price=1.79, real_world_factor=1.15),
+    residual=GeometricDecline(0.13),
+    insurance=640,
+    maintenance=620,
+    circulation_tax=190,
+)
+
+timeline = Timeline(
+    Term.of_years(8),
+    rate=0.03,
+    start_date=date(2026, 4, 1),
+    escalations={"energy": 0.03, "running_cost": 0.02},
+)
+
+result = compare(
+    [
+        Alternative(
+            "electric",
+            (
+                CashPurchase().bind(electric),
+                CarOperating(electric),
+                PurchasePremium().bind(electric),
+                GhgQuota(annual_amount=300).bind(electric),
+                CirculationTaxExemption().bind(electric),
+            ),
+        ),
+        Alternative("petrol", (CashPurchase().bind(petrol), CarOperating(petrol))),
+    ],
+    timeline,
+    party=Household(taxable_income=52_000, children=1),
+    usage=Mileage(annual_km=15_000),
+)
+
+print(result.verdict())
+# > electric is better than petrol by 6,807.98 in present value.
+
+# The energy per kilometre, at period one.
+print(f"{petrol.energy.cost_per_km(timeline)[1]:.4f}")
+# > 0.1317
+print(f"{electric.energy.cost_per_km(timeline)[1]:.4f}")
+# > 0.0696
+
+# Equivalent annual cost over the distance actually driven.
+print(f"{result.ranking()[0].cost_per_unit('km'):.3f}")
+# > 0.557
+```
+
+The purchase premium is means-tested, so it reads the buyer's income and
+dependants off a published matrix. Ask for it without a buyer who carries those
+facts and it names what is missing rather than failing on an attribute deep in a
+run; sweep the income and every draw is looked up in its own band.
+
+The circulation-tax exemption is keyed on first registration, not on purchase,
+so a used vehicle inherits only the unexpired remainder — counted in whole
+months against the scheme's end date, never in average days. It is modelled as a
+credit against the tax rather than by zeroing it, so both stay visible in the
+breakdown and sum to nothing while the exemption runs.
+
 ## Worked examples
 
-Two notebooks under `examples/`, runnable with `uv sync --extra examples`:
+Three notebooks under `examples/`, runnable with `uv sync --extra examples`:
 
 | Notebook | What it shows |
 | --- | --- |
 | `loan_vs_cash.ipynb` | Paying outright against borrowing: component breakdown, cumulative discounted cash flow, and the amortisation schedule split into interest and principal |
 | `uncertain_machine.ipynb` | The same appraisal under uncertainty: overlapping outcome distributions, the differential stream, a tornado, a switch point and named scenarios |
+| `electric_vs_petrol.ipynb` | A whole domain end to end: what a kilometre costs on each carrier, the three public benefits as a waterfall to the effective price, the year the electric car pulls ahead, the mileage that decides it, and the cliff the means test puts in the answer |
 
 Every cell is executed by the test suite, so a figure in a notebook cannot drift
 away from the code that produced it.
@@ -256,7 +360,11 @@ The uncertainty layer is built too: distributions, parameter addressing,
 correlated sampling, simulation, one-way sweeps, tornados, switch points and
 scenarios.
 
-Next: charts and frames, then the `car` and `pv` domains.
+The `car` domain is built: vehicles, energy carriers, distance-based running
+costs, a distance-settled lease, and the purchase premium, quota credit and
+circulation-tax exemption.
+
+Next: charts and frames, then the `pv` domain.
 
 ## Development
 
