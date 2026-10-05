@@ -24,10 +24,11 @@ from .lens import Attribute, Item, Lens, Step, lens, ref
 from .mark import Uncertain, uncertain
 from .sampler import correlation_matrix, uniforms
 from .scenario import Scenario, ScenarioTable, run_scenarios
-from .simulate import Mode, Simulation, simulate
+from .simulate import DEFAULT_PERCENTILES, Mode, Simulation, simulate
 from .sweep import Bar, Sweep, Switch, Tornado, one_way, switch_point, tornado
 
 __all__ = [
+    "DEFAULT_PERCENTILES",
     "Attribute",
     "Bar",
     "Constant",

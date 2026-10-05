@@ -11,6 +11,9 @@ extras::
 
 from __future__ import annotations
 
+import importlib
+from typing import TYPE_CHECKING
+
 from .appraisal import (
     Alternative,
     Appraisal,
@@ -57,7 +60,25 @@ from .timeline import (
     fisher_real,
 )
 
+if TYPE_CHECKING:
+    from types import ModuleType
+
 __version__ = "0.1.0"
+
+_LAZY = frozenset({"car", "report"})
+"""Scopes whose dependencies are optional, imported on first use."""
+
+
+def __getattr__(name: str) -> ModuleType:
+    """Import a scope with optional dependencies the first time it is reached.
+
+    Raises:
+        AttributeError: if ``name`` is not such a scope.
+    """
+    if name in _LAZY:
+        return importlib.import_module(f"{__name__}.{name}")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "Alternative",

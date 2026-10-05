@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING
 
 import numpy as np
+
+from simplyinvest.money import format_money as _money
 
 from .index import ParameterIndex
 
@@ -17,11 +18,6 @@ if TYPE_CHECKING:
     from simplyinvest.appraisal import Case
 
 __all__ = ["Scenario", "ScenarioTable", "run_scenarios"]
-
-
-def _money(value: float) -> str:
-    """``value`` rounded to two decimals for display."""
-    return f"{Decimal(str(value)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP):,}"
 
 
 @dataclass(frozen=True)

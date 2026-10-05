@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING
 
 import numpy as np
 
 from simplyinvest.errors import ParameterError
+from simplyinvest.money import format_money as _money
 
 from .distribution import HIGH_QUANTILE, LOW_QUANTILE
 from .index import ParameterIndex
@@ -29,11 +29,6 @@ MAX_BISECTIONS = 80
 
 SWITCH_TOLERANCE = 1e-9
 """How close to zero a differential present value counts as a switch."""
-
-
-def _money(value: float) -> str:
-    """``value`` rounded to two decimals for display."""
-    return f"{Decimal(str(value)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP):,}"
 
 
 def _npv_at(case: Case, address: Lens, value: float) -> dict[str, float]:

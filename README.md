@@ -337,6 +337,81 @@ months against the scheme's end date, never in average days. It is modelled as a
 credit against the tax rather than by zeroing it, so both stay visible in the
 breakdown and sum to nothing while the exemption runs.
 
+## Charts and frames
+
+`simplyinvest.report` turns a result object into a pandas frame or a matplotlib
+axes. It composes no prose: the frames are tidy and the charts are plain, so a
+notebook or a slide decides the presentation.
+
+```python
+from simplyinvest import GeometricDecline, Term, Timeline
+from simplyinvest.appraisal import Alternative, Case
+from simplyinvest.car import CarOperating, Electricity, Mileage, Petrol, Propulsion, Vehicle
+from simplyinvest.financing import CashPurchase
+from simplyinvest.report import breakdown_chart, breakdown_frame, ranking_frame
+
+electric = Vehicle(
+    name="electric",
+    price=42_000.0,
+    propulsion=Propulsion.BEV,
+    energy=Electricity(consumption=17.5, price=0.31),
+    residual=GeometricDecline(0.15),
+)
+petrol = Vehicle(
+    name="petrol",
+    price=33_500.0,
+    propulsion=Propulsion.ICE,
+    energy=Petrol(consumption=6.4, price=1.79),
+    residual=GeometricDecline(0.13),
+)
+timeline = Timeline(Term.of_years(8), rate=0.03, escalations={"energy": 0.03})
+
+result = Case(
+    alternatives=tuple(
+        Alternative(car.name, sources=(CashPurchase().bind(car), CarOperating(car)))
+        for car in (electric, petrol)
+    ),
+    timeline=timeline,
+    usage=Mileage(annual_km=15_000.0),
+).run()
+
+# A column per alternative, a row per component, summing to the present value.
+parts = breakdown_frame(result)
+print(list(parts.index))
+# > ['capital/purchase', 'operating/energy', 'terminal/residual']
+print(f"{parts['electric'].sum():,.2f}")
+# > -39,388.16
+
+# Best first, with every measure the appraisal carries.
+print(ranking_frame(result).index[0])
+# > petrol
+
+# A chart draws on the axes it is given, or on one of its own, and returns it.
+print(breakdown_chart(result).get_xlabel())
+# > present value
+```
+
+| Chart | What it draws |
+| --- | --- |
+| `breakdown_chart` | Present value per component, grouped by alternative |
+| `cumulative_chart` | The running discounted total, with the period the ranking turns |
+| `schedule_chart` | Each instalment split into interest and principal |
+| `balance_chart` | What is still owed after each instalment |
+| `distribution_chart` | Every alternative's spread of simulated outcomes |
+| `differential_chart` | Trial-by-trial margin, coloured by which side won |
+| `tornado_chart` | Each parameter's swing around the base case |
+| `sweep_chart` | Present value against one parameter, with its switch point |
+| `scenario_chart` | Present value in every named scenario |
+
+Each has a frame beside it — `flows_frame`, `breakdown_frame`, `ranking_frame`,
+`schedule_frame`, `simulation_frame`, `draws_frame`, `sweep_frame`,
+`tornado_frame`, `scenario_frame`. `flows_frame` is the long one: a row for every
+flow and period in which money actually moves, with its role, its description
+and its discounted value.
+
+Install what you use: `uv add "simplyinvest[frames]"` for the frames,
+`"simplyinvest[viz]"` for the charts. Importing `simplyinvest` pulls in neither.
+
 ## Worked examples
 
 Three notebooks under `examples/`, runnable with `uv sync --extra examples`:
@@ -364,7 +439,9 @@ The `car` domain is built: vehicles, energy carriers, distance-based running
 costs, a distance-settled lease, and the purchase premium, quota credit and
 circulation-tax exemption.
 
-Next: charts and frames, then the `pv` domain.
+Charts and frames are built, over every result object the package returns.
+
+Next: the `pv` domain.
 
 ## Development
 

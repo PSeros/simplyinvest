@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
 from simplyinvest.errors import ParameterError
+from simplyinvest.money import format_money as _money
 
 from .index import ParameterIndex
 from .sampler import uniforms
@@ -34,11 +34,6 @@ DEFAULT_PERCENTILES = (5.0, 25.0, 50.0, 75.0, 95.0)
 
 DEFAULT_RISK_LEVEL = 0.05
 """The tail a value at risk is quoted at unless another is given."""
-
-
-def _money(value: float) -> str:
-    """``value`` rounded to two decimals for display."""
-    return f"{Decimal(str(value)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP):,}"
 
 
 def simulate(

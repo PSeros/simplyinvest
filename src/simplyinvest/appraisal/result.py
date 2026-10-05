@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from decimal import ROUND_HALF_UP, Decimal
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
@@ -21,6 +20,7 @@ from simplyinvest.metrics import (
     profitability_index,
     pv_of_outflows,
 )
+from simplyinvest.money import format_money as _money
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -32,11 +32,6 @@ if TYPE_CHECKING:
 __all__ = ["Appraisal", "ComparisonResult", "Incremental"]
 
 _DEFAULT_MATERIALITY = 0.01
-
-
-def _money(value: float) -> str:
-    """``value`` rounded to two decimals for display."""
-    return f"{Decimal(str(value)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP):,}"
 
 
 @dataclass(frozen=True)

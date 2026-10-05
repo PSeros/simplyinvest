@@ -22,6 +22,9 @@ BLOCK = re.compile(r"^```python\n(.*?)^```", re.MULTILINE | re.DOTALL)
 # rewrites it to `# >`, so both spellings count.
 EXPECTED = re.compile(r"^(\s*)#\s*>[ ]?(.*)$", re.MULTILINE)
 
+#: Dependencies an extra brings, which a plain install does not.
+OPTIONAL = frozenset({"pandas", "matplotlib", "pvlib", "openpyxl"})
+
 
 def documents() -> list[Path]:
     found = [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]
@@ -61,6 +64,10 @@ def test_a_documented_block_runs_and_says_what_it_claims(
     sys.modules[name] = module
     try:
         exec(compile(script, f"{path}:{line}", "exec"), module.__dict__)
+    except ImportError as error:  # pragma: no cover - depends on what is installed
+        if not _wants_an_extra(error):
+            pytest.fail(f"{path}:{line} — the documented example raised {error!r}")
+        pytest.skip(f"{path}:{line} — needs an optional extra: {error}")
     except Exception as error:  # pragma: no cover - the message is the point
         pytest.fail(f"{path}:{line} — the documented example raised {error!r}")
     finally:
@@ -72,6 +79,11 @@ def test_a_documented_block_runs_and_says_what_it_claims(
     assert printed == expected, (
         f"{path}:{line} — the example printed {printed!r} but the documentation claims {expected!r}"
     )
+
+
+def _wants_an_extra(error: ImportError) -> bool:
+    """Whether ``error`` is a missing optional dependency rather than a broken example."""
+    return error.name in OPTIONAL or "simplyinvest[" in str(error)
 
 
 def test_there_are_blocks_to_check() -> None:

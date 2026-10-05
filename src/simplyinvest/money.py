@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -17,11 +18,26 @@ __all__ = [
     "Amount",
     "Direction",
     "Quantity",
+    "format_money",
 ]
 
 
 type Quantity = float | np.float64 | npt.NDArray[np.float64]
 """A scalar, or an array of trial draws with the trials on the leading axes."""
+
+_CENTS = Decimal("0.01")
+
+
+def format_money(value: float) -> str:
+    """``value`` to two decimals, with thousands separated.
+
+    Args:
+        value: One amount.  A batch of draws has no single rendering.
+
+    Raises:
+        TypeError: if ``value`` is not one number.
+    """
+    return f"{Decimal(str(float(value))).quantize(_CENTS, rounding=ROUND_HALF_UP):,}"
 
 
 class Direction(StrEnum):

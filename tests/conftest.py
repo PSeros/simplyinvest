@@ -26,4 +26,5 @@ def matplotlib():
     """matplotlib on a headless backend, or a skip when `viz` is not installed."""
     module = pytest.importorskip("matplotlib")
     module.use("Agg")
+    pytest.importorskip("matplotlib.pyplot")
     return module
