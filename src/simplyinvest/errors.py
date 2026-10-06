@@ -87,5 +87,9 @@ class DoubleCountingWarning(SimplyInvestWarning):
     """A benefit appears to be counted twice."""
 
 
+class ImplausibleRateWarning(SimplyInvestWarning):
+    """A growth rate is large enough to look like a growth factor."""
+
+
 class AnchorlessResamplingWarning(SimplyInvestWarning):
     """A seasonal profile was resampled onto a grid with no calendar."""

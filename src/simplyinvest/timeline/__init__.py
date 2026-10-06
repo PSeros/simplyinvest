@@ -12,12 +12,13 @@ from .conventions import (
     fisher_nominal,
     fisher_real,
 )
-from .escalation import EscalationSet
+from .escalation import IMPLAUSIBLE_RATE, EscalationSet, warn_if_a_factor
 from .grid import Timeline
 from .term import Term
 
 __all__ = [
     "ANCHORABLE_PERIODS",
+    "IMPLAUSIBLE_RATE",
     "MONTHS_PER_YEAR",
     "Escalation",
     "EscalationSet",
@@ -29,4 +30,5 @@ __all__ = [
     "fisher_nominal",
     "fisher_real",
     "months_between",
+    "warn_if_a_factor",
 ]

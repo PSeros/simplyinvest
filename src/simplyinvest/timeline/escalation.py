@@ -2,13 +2,32 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
 
+from simplyinvest.errors import ImplausibleRateWarning
+
 from .conventions import fisher_nominal
 
-__all__ = ["EscalationSet"]
+__all__ = ["IMPLAUSIBLE_RATE", "EscalationSet", "warn_if_a_factor"]
+
+
+#: An annual rate above this is more likely a growth factor given by mistake.
+IMPLAUSIBLE_RATE = 1.0
+
+
+def warn_if_a_factor(name: str, rate: float) -> None:
+    """Warn when a rate is large enough to look like a growth factor."""
+    if rate > IMPLAUSIBLE_RATE:
+        warnings.warn(
+            f"escalation {name!r} is {rate}, which compounds to {rate:.0%} a year.  "
+            f"Rates are given as fractions, so five per cent is 0.05 rather than "
+            f"1.05.  Ignore this if the rate is meant.",
+            ImplausibleRateWarning,
+            stacklevel=2,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +50,7 @@ class EscalationSet(Mapping[str, float]):
                 raise ValueError(
                     f"escalation {key!r} is {value}, which is a fall of 100% or more per year"
                 )
+            warn_if_a_factor(key, value)
         object.__setattr__(self, "rates", MappingProxyType(cleaned))
 
     @classmethod
