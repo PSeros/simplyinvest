@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from datetime import date
 
 import numpy as np
@@ -17,16 +18,25 @@ from simplyinvest import (
 )
 from simplyinvest.appraisal import Case
 from simplyinvest.car import (
+    DIESEL,
+    ELECTRICITY,
+    HYDROGEN,
     LPG,
+    LPG_CARRIER,
+    PETROL,
     Bivalent,
     CarOperating,
+    ChargingTariff,
     Diesel,
     Electricity,
+    EnergyPrice,
     Household,
+    Hydrogen,
     Mileage,
     MileageLease,
     Petrol,
     Propulsion,
+    PumpPrice,
     Vehicle,
     VehicleCategory,
 )
@@ -38,12 +48,28 @@ from simplyinvest.car.incentives import (
 )
 from simplyinvest.domain import Asset, Context, FlowSource, UsageProfile
 from simplyinvest.errors import (
+    ImplausibleRateWarning,
     PartyFactsMissingError,
     TermNotRepresentableError,
     UnknownQuantityError,
 )
 from simplyinvest.financing import CashPurchase
 from simplyinvest.uncertain import Normal, simulate, uncertain
+
+
+def prices(**quoted: EnergyPrice) -> tuple[EnergyPrice, ...]:
+    """What the buyer pays for each carrier, overridable per test.
+
+    Each quote carries its own carrier, so there is no key to disagree with it.
+    """
+    standing = {
+        ELECTRICITY: Electricity.price(0.30),
+        PETROL: Petrol.price(1.80),
+        DIESEL: Diesel.price(1.70),
+        LPG_CARRIER: LPG.price(1.00),
+        HYDROGEN: Hydrogen.price(12.00),
+    }
+    return tuple((standing | quoted).values())
 
 
 def a_timeline(**kwargs) -> Timeline:
@@ -56,15 +82,21 @@ def a_car(**kwargs) -> Vehicle:
         "name": "a car",
         "price": 30_000.0,
         "propulsion": Propulsion.ICE,
-        "energy": Petrol(consumption=6.0, price=1.80),
+        "energy": Petrol(consumption=6.0),
         "residual": GeometricDecline(0.15),
     }
     return Vehicle(**(defaults | kwargs))
 
 
+def a_buyer(**kwargs) -> Household:
+    """A buyer who has quoted a price for every carrier."""
+    return Household(**({"taxable_income": 40_000.0, "energy_prices": prices()} | kwargs))
+
+
 def a_context(vehicle_usage: Mileage | None = None, **kwargs) -> Context:
     return Context(
         timeline=a_timeline(**kwargs),
+        party=a_buyer(),
         usage=vehicle_usage or Mileage(annual_km=12_000.0),
     )
 
@@ -109,75 +141,130 @@ class TestTheDomainContracts:
 
 class TestEnergy:
     def test_consumption_is_quoted_per_hundred_kilometres(self):
-        petrol = Petrol(consumption=6.0, price=1.80)
-        assert petrol.cost_per_km(a_timeline())[1] == pytest.approx(0.108)
+        petrol = Petrol(consumption=6.0)
+        assert petrol.cost_per_km(prices(), a_timeline())[1] == pytest.approx(0.108)
 
     def test_a_real_world_factor_raises_consumption(self):
-        thirsty = Petrol(consumption=6.0, price=1.80, real_world_factor=1.2)
+        thirsty = Petrol(consumption=6.0, real_world_factor=1.2)
         assert thirsty.effective_consumption == pytest.approx(7.2)
 
     def test_charging_losses_are_billed_at_the_meter(self):
         """Consumption is measured at the battery; the bill is at the meter."""
-        battery = Electricity(consumption=18.0, price=0.30)
-        metered = Electricity(consumption=18.0, price=0.30, charging_loss=0.10)
+        battery = Electricity(consumption=18.0)
+        metered = Electricity(consumption=18.0, charging_loss=0.10)
         assert metered.effective_consumption == pytest.approx(20.0)
         assert metered.effective_consumption > battery.effective_consumption
 
     def test_the_home_share_blends_the_two_prices(self):
-        mixed = Electricity(consumption=18.0, price=0.30, public_price=0.60, home_share=0.75)
-        assert mixed.blended_price == pytest.approx(0.375)
+        """Where the car is plugged in is a habit of the driver, so it is priced there."""
+        mixed = Electricity.price(0.30, public=0.60, home_share=0.75)
+        assert mixed.blended == pytest.approx(0.375)
 
     def test_charging_only_in_public_is_the_whole_public_price(self):
-        public = Electricity(consumption=18.0, price=0.30, public_price=0.60, home_share=0.0)
-        assert public.blended_price == pytest.approx(0.60)
+        public = Electricity.price(0.30, public=0.60, home_share=0.0)
+        assert public.blended == pytest.approx(0.60)
 
     def test_lpg_carries_its_volumetric_penalty(self):
-        gas = LPG(consumption=7.0, price=1.00, volumetric_penalty=1.20)
+        gas = LPG(consumption=7.0, volumetric_penalty=1.20)
         assert gas.effective_consumption == pytest.approx(8.4)
 
     def test_a_bivalent_source_weights_its_two_carriers(self):
-        electric = Electricity(consumption=20.0, price=0.30)
-        petrol = Petrol(consumption=6.0, price=1.80)
+        electric = Electricity(consumption=20.0)
+        petrol = Petrol(consumption=6.0)
         hybrid = Bivalent(electric, petrol, primary_share=0.6)
         timeline = a_timeline()
-        expected = 0.6 * electric.cost_per_km(timeline) + 0.4 * petrol.cost_per_km(timeline)
-        assert hybrid.cost_per_km(timeline) == pytest.approx(expected)
+        quoted = prices()
+        expected = 0.6 * electric.cost_per_km(quoted, timeline) + 0.4 * petrol.cost_per_km(
+            quoted, timeline
+        )
+        assert hybrid.cost_per_km(prices(), timeline) == pytest.approx(expected)
 
     def test_a_share_of_one_is_just_the_primary(self):
-        electric = Electricity(consumption=20.0, price=0.30)
-        only = Bivalent(electric, Petrol(consumption=6.0, price=1.80), primary_share=1.0)
-        assert only.cost_per_km(a_timeline()) == pytest.approx(electric.cost_per_km(a_timeline()))
+        electric = Electricity(consumption=20.0)
+        only = Bivalent(electric, Petrol(consumption=6.0), primary_share=1.0)
+        timeline, quoted = a_timeline(), prices()
+        assert only.cost_per_km(quoted, timeline) == pytest.approx(
+            electric.cost_per_km(quoted, timeline)
+        )
+
+    def test_a_bivalent_source_needs_both_carriers_priced(self):
+        hybrid = Bivalent(Electricity(consumption=20.0), Petrol(consumption=6.0), 0.6)
+        assert hybrid.carriers == {ELECTRICITY, PETROL}
+        with pytest.raises(UnknownQuantityError, match="petrol"):
+            hybrid.cost_per_km((Electricity.price(0.30),), a_timeline())
 
     def test_prices_escalate_on_their_own_key(self):
         timeline = a_timeline(escalations={"energy": 0.10})
-        petrol = Petrol(consumption=6.0, price=1.80)
-        prices = petrol.unit_price(timeline)
-        assert prices[12] == pytest.approx(1.80 * 1.10)
-        assert prices[24] == pytest.approx(1.80 * 1.10**2)
+        quoted = Petrol.price(1.80).per_unit(timeline)
+        assert quoted[12] == pytest.approx(1.80 * 1.10)
+        assert quoted[24] == pytest.approx(1.80 * 1.10**2)
 
     def test_a_carrier_may_take_its_own_rate_instead_of_a_key(self):
-        petrol = Petrol(consumption=6.0, price=1.80, escalation=0.05)
-        assert petrol.unit_price(a_timeline())[12] == pytest.approx(1.80 * 1.05)
+        quoted = Petrol.price(1.80, escalation=0.05).per_unit(a_timeline())
+        assert quoted[12] == pytest.approx(1.80 * 1.05)
 
     def test_cost_per_period_is_the_distance_times_the_rate(self):
         timeline = a_timeline()
-        diesel = Diesel(consumption=5.5, price=1.70)
+        diesel = Diesel(consumption=5.5)
         distance = np.full(timeline.n_periods + 1, 1_000.0)
-        assert diesel.cost_per_period(distance, timeline) == pytest.approx(
-            distance * diesel.cost_per_km(timeline)
+        assert diesel.cost_per_period(distance, prices(), timeline) == pytest.approx(
+            distance * diesel.cost_per_km(prices(), timeline)
         )
 
     @pytest.mark.parametrize(
         ("kwargs", "message"),
         [
             ({"consumption": -1.0}, "consumption cannot be negative"),
-            ({"consumption": 6.0, "price": -1.0}, "price cannot be negative"),
             ({"consumption": 6.0, "real_world_factor": 0.0}, "must be positive"),
         ],
     )
     def test_nonsense_is_refused(self, kwargs, message):
         with pytest.raises(ValueError, match=message):
             Petrol(**kwargs)
+
+    def test_a_negative_price_is_refused_where_prices_now_live(self):
+        with pytest.raises(ValueError, match="price cannot be negative"):
+            Petrol.price(-1.0)
+
+    def test_a_growth_factor_given_as_a_rate_is_flagged(self):
+        """Five per cent a year is 0.05; 1.05 would be 105% and compound away.
+
+        It is a warning rather than a refusal, because a very large rate is
+        unusual rather than impossible.
+        """
+        with pytest.warns(ImplausibleRateWarning, match="0.05 rather than"):
+            Petrol.price(1.79, escalation=1.05)
+
+    def test_an_ordinary_rate_passes_quietly(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert Petrol.price(1.79, escalation=0.05)
+
+    def test_a_rate_that_wipes_out_the_price_is_still_refused(self):
+        with pytest.raises(ValueError, match="fall of 100%"):
+            Petrol.price(1.79, escalation=-1.0)
+
+    def test_a_price_has_to_say_what_it_prices(self):
+        with pytest.raises(ValueError, match="which carrier"):
+            PumpPrice(1.79)
+
+    def test_quoting_a_carrier_twice_is_refused(self):
+        with pytest.raises(ValueError, match="more than once"):
+            Household(energy_prices=(Petrol.price(1.79), Petrol.price(1.82)))
+
+    def test_each_carrier_builds_the_price_it_is_sold_at(self):
+        """The class holding the consumption knows the shape its price takes."""
+        assert isinstance(Petrol.price(1.79), PumpPrice)
+        assert isinstance(Electricity.price(0.31), ChargingTariff)
+
+    def test_the_factory_builds_what_the_constructor_would(self):
+        built = Electricity.price(0.31, public=0.55, home_share=0.8)
+        assert built == ChargingTariff(home=0.31, public=0.55, home_share=0.8, carrier=ELECTRICITY)
+        assert Petrol.price(1.79) == PumpPrice(1.79, carrier=PETROL)
+        assert built.carrier == ELECTRICITY
+
+    def test_charging_only_at_home_needs_no_public_price(self):
+        assert float(Electricity.price(0.31).blended) == pytest.approx(0.31)
 
     def test_a_charging_loss_of_one_would_divide_by_zero(self):
         with pytest.raises(ValueError, match="fraction below one"):
@@ -227,7 +314,7 @@ class TestMileage:
 
 class TestRunningCosts:
     def test_energy_costs_what_the_distance_and_the_rate_say(self):
-        car = a_car(energy=Petrol(consumption=6.0, price=1.80))
+        car = a_car(energy=Petrol(consumption=6.0))
         ctx = a_context(Mileage(annual_km=12_000.0))
         yearly = CarOperating(car).energy_cost(ctx)[1:13].sum()
         assert yearly == pytest.approx(12_000.0 * 0.06 * 1.80)
@@ -270,7 +357,9 @@ class TestRunningCosts:
         assert amounts[25:] == pytest.approx(0.0)
 
     def test_it_says_so_when_the_usage_carries_no_distance(self):
-        ctx = Context(timeline=a_timeline(), usage=ConstantAnnualUsage({"kwh": 1.0}))
+        ctx = Context(
+            timeline=a_timeline(), party=a_buyer(), usage=ConstantAnnualUsage({"kwh": 1.0})
+        )
         with pytest.raises(UnknownQuantityError, match="km"):
             CarOperating(a_car()).flows(ctx)
 
@@ -537,7 +626,7 @@ class TestTheGridDoesNotChangeTheAnswer:
             propulsion=Propulsion.BEV,
             circulation_tax=180.0,
             insurance=600.0,
-            energy=Electricity(consumption=18.0, price=0.30),
+            energy=Electricity(consumption=18.0),
             first_registration=date(2026, 1, 1),
         )
         timeline = Timeline(
@@ -560,7 +649,7 @@ class TestTheGridDoesNotChangeTheAnswer:
                 Alternative("nothing", (CashPurchase().bind(a_car(price=0.0)),)),
             ],
             timeline,
-            party=Household(40_000.0, 1),
+            party=a_buyer(taxable_income=40_000.0, children=1),
             usage=Mileage(annual_km=12_000.0),
         )
 
@@ -578,7 +667,7 @@ class TestTheGridDoesNotChangeTheAnswer:
         """Rounding it to one quarter or two is how a plausible wrong answer starts."""
         ctx = Context(
             timeline=Timeline(horizon=Term.of_years(4), periods_per_year=4),
-            party=Household(30_000.0, 0),
+            party=a_buyer(taxable_income=30_000.0, children=0),
         )
         with pytest.raises(TermNotRepresentableError, match=r"4 months is 1\.33"):
             PurchasePremium(disbursement_lag=Term.of_months(4)).flows(
@@ -618,9 +707,6 @@ class TestBatchingAgreesWithLooping:
             propulsion=Propulsion.BEV,
             energy=Electricity(
                 consumption=uncertain(17.5, "consumption", Normal(17.5, 1.0)),
-                price=uncertain(0.31, "power", Normal(0.31, 0.04)),
-                public_price=0.55,
-                home_share=0.8,
                 charging_loss=0.10,
             ),
             residual=GeometricDecline(0.15),
@@ -643,7 +729,7 @@ class TestBatchingAgreesWithLooping:
                 Alternative("petrol", (CashPurchase().bind(other), CarOperating(other))),
             ),
             timeline=a_timeline(horizon=Term.of_years(6), rate=0.03),
-            party=Household(taxable_income=52_000.0, children=1),
+            party=a_buyer(taxable_income=52_000.0, children=1),
             usage=Mileage(annual_km=uncertain(14_000.0, "driven", Normal(14_000.0, 2_000.0))),
         )
 
@@ -658,14 +744,16 @@ class TestBatchingAgreesWithLooping:
     def test_energy_pricing_keeps_the_trial_axis_in_front(self):
         """A swept price must widen the trial axis, not collide with the periods."""
         timeline = a_timeline()
-        source = Electricity(consumption=18.0, price=np.array([0.28, 0.31, 0.34]))
-        assert source.cost_per_km(timeline).shape == (3, timeline.n_periods + 1)
+        drawn = prices(electricity=Electricity.price(np.array([0.28, 0.31, 0.34])))
+        source = Electricity(consumption=18.0)
+        assert source.cost_per_km(drawn, timeline).shape == (3, timeline.n_periods + 1)
 
     def test_a_swept_price_is_read_trial_by_trial(self):
         timeline = a_timeline()
-        prices = np.array([1.70, 1.80, 1.90])
-        together = Petrol(consumption=6.0, price=prices).cost_per_km(timeline)
-        apart = [Petrol(consumption=6.0, price=p).cost_per_km(timeline) for p in prices]
+        drawn = np.array([1.70, 1.80, 1.90])
+        source = Petrol(consumption=6.0)
+        together = source.cost_per_km(prices(petrol=Petrol.price(drawn)), timeline)
+        apart = [source.cost_per_km(prices(petrol=Petrol.price(one)), timeline) for one in drawn]
         assert together == pytest.approx(np.stack(apart))
 
 

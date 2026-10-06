@@ -11,10 +11,19 @@ from hypothesis import strategies as st
 
 from simplyinvest import GeometricDecline, Term, Timeline
 from simplyinvest.car import (
+    DIESEL,
+    ELECTRICITY,
+    HYDROGEN,
+    LPG,
+    LPG_CARRIER,
+    PETROL,
     Bivalent,
     CarOperating,
+    Diesel,
     Electricity,
+    EnergyPrice,
     Household,
+    Hydrogen,
     Mileage,
     Petrol,
     Propulsion,
@@ -29,6 +38,21 @@ fraction = st.floats(min_value=0.0, max_value=1.0, allow_nan=False, allow_infini
 distance = st.floats(min_value=0.0, max_value=1e6, allow_nan=False, allow_infinity=False)
 incomes = st.floats(min_value=0.0, max_value=2e5, allow_nan=False, allow_infinity=False)
 whole_years = st.integers(min_value=0, max_value=25)
+
+
+def prices(**quoted: EnergyPrice) -> tuple[EnergyPrice, ...]:
+    """What the buyer pays for each carrier, overridable per test.
+
+    Each quote carries its own carrier, so there is no key to disagree with it.
+    """
+    standing = {
+        ELECTRICITY: Electricity.price(0.30),
+        PETROL: Petrol.price(1.80),
+        DIESEL: Diesel.price(1.70),
+        LPG_CARRIER: LPG.price(1.00),
+        HYDROGEN: Hydrogen.price(12.00),
+    }
+    return tuple((standing | quoted).values())
 
 
 def a_timeline(**kwargs) -> Timeline:
@@ -53,39 +77,42 @@ def a_bev(**kwargs) -> Vehicle:
 class TestEnergyCosts:
     @given(consumption=money, price=money, driven=distance)
     def test_cost_is_linear_in_distance(self, consumption, price, driven):
-        petrol = Petrol(consumption=consumption, price=price)
+        petrol = Petrol(consumption=consumption)
         timeline = a_timeline()
-        one = petrol.cost_per_period(np.full(timeline.n_periods + 1, driven), timeline)
-        two = petrol.cost_per_period(np.full(timeline.n_periods + 1, 2 * driven), timeline)
+        quoted = prices(petrol=Petrol.price(price))
+        one = petrol.cost_per_period(np.full(timeline.n_periods + 1, driven), quoted, timeline)
+        two = petrol.cost_per_period(np.full(timeline.n_periods + 1, 2 * driven), quoted, timeline)
         assert two == pytest.approx(2 * one)
 
     @given(loss=st.floats(min_value=0.0, max_value=0.95), consumption=money)
     def test_charging_losses_never_lower_the_bill(self, loss, consumption):
-        battery = Electricity(consumption=consumption, price=0.30)
-        metered = Electricity(consumption=consumption, price=0.30, charging_loss=loss)
+        battery = Electricity(consumption=consumption)
+        metered = Electricity(consumption=consumption, charging_loss=loss)
         assert metered.effective_consumption >= battery.effective_consumption
 
     @given(share=fraction)
     def test_a_blend_lies_between_its_two_prices(self, share):
         home, public = 0.28, 0.62
-        mixed = Electricity(consumption=18.0, price=home, public_price=public, home_share=share)
-        assert home - 1e-12 <= mixed.blended_price <= public + 1e-12
+        mixed = Electricity.price(home, public=public, home_share=share)
+        assert home - 1e-12 <= float(mixed.blended) <= public + 1e-12
 
     @given(share=fraction)
     def test_a_bivalent_lies_between_its_two_carriers(self, share):
-        first = Electricity(consumption=19.0, price=0.32)
-        second = Petrol(consumption=6.5, price=1.85)
+        first = Electricity(consumption=19.0)
+        second = Petrol(consumption=6.5)
         timeline = a_timeline()
-        pair = Bivalent(first, second, primary_share=share).cost_per_km(timeline)
-        low = np.minimum(first.cost_per_km(timeline), second.cost_per_km(timeline))
-        high = np.maximum(first.cost_per_km(timeline), second.cost_per_km(timeline))
+        pair = Bivalent(first, second, primary_share=share).cost_per_km(prices(), timeline)
+        quoted = prices()
+        near = first.cost_per_km(quoted, timeline)
+        far = second.cost_per_km(quoted, timeline)
+        low, high = np.minimum(near, far), np.maximum(near, far)
         assert np.all(pair >= low - 1e-12)
         assert np.all(pair <= high + 1e-12)
 
     @given(escalation=rate)
     def test_a_price_never_falls_where_escalation_is_positive(self, escalation):
-        prices = Petrol(consumption=6.0, price=1.80, escalation=escalation).unit_price(a_timeline())
-        assert np.all(np.diff(prices) >= -1e-12)
+        quoted = Petrol.price(1.80, escalation=escalation).per_unit(a_timeline())
+        assert np.all(np.diff(quoted) >= -1e-12)
 
 
 class TestDistanceDriven:
@@ -136,7 +163,8 @@ class TestTheMeansTest:
     @given(draws=st.lists(incomes, min_size=1, max_size=20))
     def test_the_paid_draws_are_exactly_the_eligible_ones(self, draws):
         car = a_bev()
-        ctx = Context(timeline=a_timeline(), party=Household(np.asarray(draws), 1))
+        buyer = Household(np.asarray(draws), 1, energy_prices=prices())
+        ctx = Context(timeline=a_timeline(), party=buyer)
         premium = PurchasePremium()
         entitled = np.asarray(premium.grant(ctx.party))
         paid = premium.bind(car).flows(ctx).amounts(ctx.timeline)
@@ -160,6 +188,7 @@ class TestTheExemption:
         car = a_bev(circulation_tax=tax, first_registration=date(2026, 1, 1))
         ctx = Context(
             timeline=a_timeline(escalations={"running_cost": escalation}),
+            party=Household(energy_prices=prices()),
             usage=Mileage(annual_km=0.0),
         )
         series = CarOperating(car).flows(ctx) + CirculationTaxExemption().bind(car).flows(ctx)

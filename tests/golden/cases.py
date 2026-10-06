@@ -8,13 +8,21 @@ from datetime import date
 from simplyinvest import Amount, CashFlowSeries, Component, Context, Recurring, Role, Term, Timeline
 from simplyinvest.appraisal import Alternative, Case
 from simplyinvest.car import (
+    DIESEL,
+    ELECTRICITY,
+    HYDROGEN,
+    LPG_CARRIER,
+    PETROL,
     CarOperating,
+    ChargingTariff,
     Electricity,
+    EnergyPrice,
     Household,
     Mileage,
     MileageLease,
     Petrol,
     Propulsion,
+    PumpPrice,
     Vehicle,
 )
 from simplyinvest.car.incentives import CirculationTaxExemption, GhgQuota, PurchasePremium
@@ -22,6 +30,18 @@ from simplyinvest.domain import ConstantAnnualUsage, GeometricDecline
 from simplyinvest.financing import AnnuityLoan, CashPurchase, Lease
 from simplyinvest.money import Quantity
 from simplyinvest.uncertain import LogNormal, Normal, Scenario, uncertain
+
+
+def prices(**quoted) -> dict[str, EnergyPrice]:
+    """What the buyer pays for each carrier, overridable per test."""
+    standing = {
+        ELECTRICITY: ChargingTariff(home=0.30),
+        PETROL: PumpPrice(1.80),
+        DIESEL: PumpPrice(1.70),
+        LPG_CARRIER: PumpPrice(1.00),
+        HYDROGEN: PumpPrice(12.00),
+    }
+    return standing | quoted
 
 
 @dataclass(frozen=True)
@@ -166,9 +186,7 @@ def electric_vs_petrol() -> Case:
         name="electric",
         price=42_000.0,
         propulsion=Propulsion.BEV,
-        energy=Electricity(
-            consumption=17.5, price=0.31, public_price=0.55, home_share=0.8, charging_loss=0.10
-        ),
+        energy=Electricity(consumption=17.5, charging_loss=0.10),
         residual=GeometricDecline(0.15),
         insurance=780.0,
         maintenance=350.0,
@@ -180,7 +198,7 @@ def electric_vs_petrol() -> Case:
         name="petrol",
         price=33_500.0,
         propulsion=Propulsion.ICE,
-        energy=Petrol(consumption=6.4, price=1.79, real_world_factor=1.15),
+        energy=Petrol(consumption=6.4, real_world_factor=1.15),
         residual=GeometricDecline(0.13),
         insurance=640.0,
         maintenance=620.0,
@@ -211,7 +229,14 @@ def electric_vs_petrol() -> Case:
             ),
         ),
         timeline=timeline,
-        party=Household(taxable_income=52_000.0, children=1),
+        party=Household(
+            taxable_income=52_000.0,
+            children=1,
+            energy_prices=(
+                Electricity.price(0.31, public=0.55, home_share=0.8),
+                Petrol.price(1.79),
+            ),
+        ),
         usage=Mileage(annual_km=15_000.0),
     )
 
@@ -222,7 +247,7 @@ def a_leased_car_over_six_years() -> Case:
         name="estate",
         price=38_000.0,
         propulsion=Propulsion.ICE,
-        energy=Petrol(consumption=6.8, price=1.82, real_world_factor=1.12),
+        energy=Petrol(consumption=6.8, real_world_factor=1.12),
         residual=GeometricDecline(0.16),
         insurance=720.0,
         maintenance=540.0,
@@ -253,6 +278,7 @@ def a_leased_car_over_six_years() -> Case:
             ),
         ),
         timeline=timeline,
+        party=Household(energy_prices=(Petrol.price(1.82),)),
         usage=Mileage(annual_km=18_000.0),
     )
 

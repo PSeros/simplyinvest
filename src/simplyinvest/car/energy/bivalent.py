@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -11,6 +12,7 @@ if TYPE_CHECKING:
     import numpy as np
     import numpy.typing as npt
 
+    from simplyinvest.car.price import EnergyPrice
     from simplyinvest.timeline import Timeline
 
 __all__ = ["Bivalent"]
@@ -43,17 +45,22 @@ class Bivalent(EnergySource):
                 f"primary_share is a fraction of the distance, got {self.primary_share!r}"
             )
 
-    def cost_per_km(self, timeline: Timeline) -> npt.NDArray[np.float64]:
-        """The distance-weighted cost of one kilometre in each period."""
-        return self.primary.cost_per_km(timeline) * self.primary_share + self.secondary.cost_per_km(
-            timeline
-        ) * (1.0 - self.primary_share)
+    @property
+    def carriers(self) -> frozenset[str]:
+        """Both sources' carriers, which the buyer must have priced."""
+        return self.primary.carriers | self.secondary.carriers
 
-    def cost_per_period(
-        self, distance: npt.NDArray[np.float64], timeline: Timeline
+    def cost_per_km(
+        self, prices: Sequence[EnergyPrice], timeline: Timeline
     ) -> npt.NDArray[np.float64]:
-        """What the kilometres in each period cost across both carriers."""
-        return distance * self.cost_per_km(timeline)
+        """The distance-weighted cost of one kilometre in each period.
+
+        Raises:
+            UnknownQuantityError: if the buyer quotes no price for a carrier.
+        """
+        near = self.primary.cost_per_km(prices, timeline) * self.primary_share
+        far = self.secondary.cost_per_km(prices, timeline) * (1.0 - self.primary_share)
+        return near + far
 
     def __str__(self) -> str:
         return f"{self.primary_share:.0%} {self.primary}, rest {self.secondary}"

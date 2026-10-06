@@ -8,8 +8,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from simplyinvest.cashflow import CashFlow, CashFlowSeries, Component, Explicit, Recurring, Role
+from simplyinvest.domain import require
 from simplyinvest.money import Amount
 
+from .party import EnergyBuyer
 from .usage import KM
 
 if TYPE_CHECKING:
@@ -33,13 +35,6 @@ _FIXED = (
 )
 
 
-def window_mask(ctx: Context) -> npt.NDArray[np.float64]:
-    """One in each period this context covers, zero elsewhere."""
-    mask = np.zeros(ctx.timeline.n_periods + 1, dtype=np.float64)
-    mask[ctx.start + 1 : ctx.last + 1] = 1.0
-    return mask
-
-
 @dataclass(frozen=True)
 class CarOperating:
     """Energy and the fixed annual costs of keeping a vehicle on the road.
@@ -58,11 +53,19 @@ class CarOperating:
         Raises:
             UnknownQuantityError: if the usage profile carries no distance.
         """
-        return ctx.usage.per_period(KM, ctx.timeline) * window_mask(ctx)
+        return ctx.usage.per_period(KM, ctx.timeline) * ctx.mask
 
     def energy_cost(self, ctx: Context) -> npt.NDArray[np.float64]:
-        """What the energy for those kilometres costs in each period."""
-        return self.vehicle.energy.cost_per_period(self.distance(ctx), ctx.timeline)
+        """What the energy for those kilometres costs in each period.
+
+        Raises:
+            PartyFactsMissingError: if the party quotes no prices at all.
+            UnknownQuantityError: if none is quoted for this vehicle's carrier.
+        """
+        driver = require(ctx.party, EnergyBuyer)
+        return self.vehicle.energy.cost_per_period(
+            self.distance(ctx), driver.energy_prices, ctx.timeline
+        )
 
     def flows(self, ctx: Context) -> CashFlowSeries:
         """Energy per period, and each fixed annual cost spread over the year."""

@@ -265,9 +265,7 @@ electric = Vehicle(
     price=42_000,
     propulsion=Propulsion.BEV,
     # Consumption is measured at the battery; the loss is billed at the meter.
-    energy=Electricity(
-        consumption=17.5, price=0.31, public_price=0.55, home_share=0.8, charging_loss=0.10
-    ),
+    energy=Electricity(consumption=17.5, charging_loss=0.10),
     residual=GeometricDecline(0.15),
     insurance=780,
     maintenance=350,
@@ -279,7 +277,7 @@ petrol = Vehicle(
     name="petrol",
     price=33_500,
     propulsion=Propulsion.ICE,
-    energy=Petrol(consumption=6.4, price=1.79, real_world_factor=1.15),
+    energy=Petrol(consumption=6.4, real_world_factor=1.15),
     residual=GeometricDecline(0.13),
     insurance=640,
     maintenance=620,
@@ -308,17 +306,28 @@ result = compare(
         Alternative("petrol", (CashPurchase().bind(petrol), CarOperating(petrol))),
     ],
     timeline,
-    party=Household(taxable_income=52_000, children=1),
+    party=Household(
+        taxable_income=52_000,
+        children=1,
+        # A price is a contract, so it is quoted once here rather than once per
+        # car, and each quote carries its own carrier.
+        energy_prices=(
+            Electricity.price(0.31, public=0.55, home_share=0.8),
+            Petrol.price(1.79),
+        ),
+    ),
     usage=Mileage(annual_km=15_000),
 )
 
 print(result.verdict())
 # > electric is better than petrol by 6,807.98 in present value.
 
-# The energy per kilometre, at period one.
-print(f"{petrol.energy.cost_per_km(timeline)[1]:.4f}")
+# The energy per kilometre, at period one.  The car says how much it burns; the
+# buyer says what that costs.
+quoted = (Electricity.price(0.31, public=0.55, home_share=0.8), Petrol.price(1.79))
+print(f"{petrol.energy.cost_per_km(quoted, timeline)[1]:.4f}")
 # > 0.1317
-print(f"{electric.energy.cost_per_km(timeline)[1]:.4f}")
+print(f"{electric.energy.cost_per_km(quoted, timeline)[1]:.4f}")
 # > 0.0696
 
 # Equivalent annual cost over the distance actually driven.
@@ -346,7 +355,15 @@ notebook or a slide decides the presentation.
 ```python
 from simplyinvest import GeometricDecline, Term, Timeline
 from simplyinvest.appraisal import Alternative, Case
-from simplyinvest.car import CarOperating, Electricity, Mileage, Petrol, Propulsion, Vehicle
+from simplyinvest.car import (
+    CarOperating,
+    Electricity,
+    Household,
+    Mileage,
+    Petrol,
+    Propulsion,
+    Vehicle,
+)
 from simplyinvest.financing import CashPurchase
 from simplyinvest.report import breakdown_chart, breakdown_frame, ranking_frame
 
@@ -354,14 +371,14 @@ electric = Vehicle(
     name="electric",
     price=42_000.0,
     propulsion=Propulsion.BEV,
-    energy=Electricity(consumption=17.5, price=0.31),
+    energy=Electricity(consumption=17.5),
     residual=GeometricDecline(0.15),
 )
 petrol = Vehicle(
     name="petrol",
     price=33_500.0,
     propulsion=Propulsion.ICE,
-    energy=Petrol(consumption=6.4, price=1.79),
+    energy=Petrol(consumption=6.4),
     residual=GeometricDecline(0.13),
 )
 timeline = Timeline(Term.of_years(8), rate=0.03, escalations={"energy": 0.03})
@@ -372,6 +389,7 @@ result = Case(
         for car in (electric, petrol)
     ),
     timeline=timeline,
+    party=Household(energy_prices=(Electricity.price(0.31), Petrol.price(1.79))),
     usage=Mileage(annual_km=15_000.0),
 ).run()
 

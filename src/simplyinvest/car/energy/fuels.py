@@ -9,7 +9,13 @@ from simplyinvest.money import Quantity
 
 from .base import MeteredSource
 
-__all__ = ["LPG", "Diesel", "Hydrogen", "Petrol"]
+__all__ = ["DIESEL", "HYDROGEN", "LPG", "LPG_CARRIER", "PETROL", "Diesel", "Hydrogen", "Petrol"]
+
+#: The carriers sold at a pump.
+PETROL = "petrol"
+DIESEL = "diesel"
+HYDROGEN = "hydrogen"
+LPG_CARRIER = "lpg"
 
 
 @dataclass(frozen=True)
@@ -17,6 +23,7 @@ class Petrol(MeteredSource):
     """Petrol, litres per 100 km."""
 
     unit: ClassVar[str] = "l"
+    carrier: ClassVar[str] = PETROL
 
 
 @dataclass(frozen=True)
@@ -24,6 +31,7 @@ class Diesel(MeteredSource):
     """Diesel, litres per 100 km."""
 
     unit: ClassVar[str] = "l"
+    carrier: ClassVar[str] = DIESEL
 
 
 @dataclass(frozen=True)
@@ -31,6 +39,7 @@ class Hydrogen(MeteredSource):
     """Hydrogen, kilograms per 100 km."""
 
     unit: ClassVar[str] = "kg"
+    carrier: ClassVar[str] = HYDROGEN
 
 
 @dataclass(frozen=True)
@@ -49,6 +58,7 @@ class LPG(MeteredSource):
     volumetric_penalty: float = 1.0
 
     unit: ClassVar[str] = "l"
+    carrier: ClassVar[str] = LPG_CARRIER
 
     def __post_init__(self) -> None:
         super().__post_init__()

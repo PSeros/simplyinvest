@@ -1,67 +1,72 @@
-"""Grid electricity, with a home/public price split and charging losses."""
+"""A battery vehicle, and the losses between the meter and the cells."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
-import numpy as np
-
+from simplyinvest.car.price import DEFAULT_ESCALATION, ChargingTariff, EnergyPrice
 from simplyinvest.money import Quantity
 
 from .base import MeteredSource
 
-if TYPE_CHECKING:
-    import numpy.typing as npt
+__all__ = ["ELECTRICITY", "Electricity"]
 
-    from simplyinvest.timeline import Timeline
-
-__all__ = ["Electricity"]
+#: The carrier a battery vehicle draws on.
+ELECTRICITY = "electricity"
 
 
 @dataclass(frozen=True)
 class Electricity(MeteredSource):
-    """Grid electricity drawn partly at home and partly in public.
+    """Grid electricity, consumed at the battery and billed at the meter.
 
     ``consumption`` is measured at the battery and ``charging_loss`` is taken
     between meter and battery, so the billed energy is the larger figure.
+    Where the car is charged, and at what price, is quoted on the buyer.
 
     Args:
-        public_price: Price per kWh charging in public.
-        home_share: Fraction of energy drawn at ``price``.
         charging_loss: Fraction of energy lost between meter and battery.
 
     Raises:
-        ValueError: if the home share is outside ``[0, 1]`` or the charging
-            loss is outside ``[0, 1)``.
+        ValueError: if the charging loss is outside ``[0, 1)``.
     """
 
-    public_price: Quantity = 0.0
-    home_share: float = 1.0
     charging_loss: float = 0.0
 
     unit: ClassVar[str] = "kWh"
+    carrier: ClassVar[str] = ELECTRICITY
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        if np.any(np.asarray(self.public_price, dtype=np.float64) < 0.0):
-            raise ValueError(f"a price cannot be negative, got {self.public_price!r}")
-        if not 0.0 <= self.home_share <= 1.0:
-            raise ValueError(f"home_share is a fraction of energy, got {self.home_share!r}")
         if not 0.0 <= self.charging_loss < 1.0:
             raise ValueError(f"charging_loss is a fraction below one, got {self.charging_loss!r}")
 
-    @property
-    def blended_price(self) -> Quantity:
-        """The home and public mix, per kWh, before escalation."""
-        return self.price * self.home_share + self.public_price * (1.0 - self.home_share)
+    @classmethod
+    def price(
+        cls,
+        price: Quantity = 0.0,
+        *,
+        public: Quantity | None = None,
+        home_share: float = 1.0,
+        escalation: str | float = DEFAULT_ESCALATION,
+    ) -> EnergyPrice:
+        """A charging contract, blended between home and public.
+
+        Args:
+            price: What one kWh costs at home.
+            public: What one kWh costs in public.  Defaults to the home price.
+            home_share: Fraction of energy drawn at home.
+            escalation: Escalation key or annual rate the prices grow at.
+        """
+        return ChargingTariff(
+            home=price,
+            public=price if public is None else public,
+            home_share=home_share,
+            escalation=escalation,
+            carrier=cls.carrier,
+        )
 
     @property
     def effective_consumption(self) -> Quantity:
         """Energy drawn at the meter, per 100 km."""
         return self.consumption * self.real_world_factor / (1.0 - self.charging_loss)
-
-    def unit_price(self, timeline: Timeline) -> npt.NDArray[np.float64]:
-        """The blended price of one kWh in each period, shape ``(..., n + 1)``."""
-        price = np.asarray(self.blended_price, dtype=np.float64)
-        return price[..., np.newaxis] * timeline.escalation_index(self.escalation)
