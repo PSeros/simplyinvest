@@ -65,7 +65,7 @@ if TYPE_CHECKING:
 
 __version__ = "0.1.0"
 
-_LAZY = frozenset({"car", "report"})
+_LAZY = frozenset({"car", "pv", "report"})
 """Scopes whose dependencies are optional, imported on first use."""
 
 

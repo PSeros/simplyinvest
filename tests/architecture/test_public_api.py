@@ -19,6 +19,7 @@ SCOPES = (
     "incentives",
     "metrics",
     "money",
+    "pv",
     "report",
     "tax",
     "timeline",

@@ -432,13 +432,15 @@ Install what you use: `uv add "simplyinvest[frames]"` for the frames,
 
 ## Worked examples
 
-Three notebooks under `examples/`, runnable with `uv sync --extra examples`:
+Five notebooks under `examples/`, runnable with `uv sync --extra examples`:
 
 | Notebook | What it shows |
 | --- | --- |
 | `loan_vs_cash.ipynb` | Paying outright against borrowing: component breakdown, cumulative discounted cash flow, and the amortisation schedule split into interest and principal |
 | `uncertain_machine.ipynb` | The same appraisal under uncertainty: overlapping outcome distributions, the differential stream, a tornado, a switch point and named scenarios |
 | `electric_vs_petrol.ipynb` | A whole domain end to end: what a kilometre costs on each carrier, the three public benefits as a waterfall to the effective price, the year the electric car pulls ahead, the mileage that decides it, and the cliff the means test puts in the answer |
+| `pv_on_a_house.ipynb` | A rooftop system on stated numbers: the two revenue streams pulling apart over twenty years, the self-consumption share the roof needs to break even, what the negative-price rule costs, and what commissioning six months later would |
+| `pv_from_weather.ipynb` | The same roof with the yield computed instead of guessed: a typical year from PVGIS, what each orientation makes and when, how close the rule of thumb was, and what the roof's bearing is worth |
 
 Every cell is executed by the test suite, so a figure in a notebook cannot drift
 away from the code that produced it.
@@ -459,7 +461,18 @@ circulation-tax exemption.
 
 Charts and frames are built, over every result object the package returns.
 
-Next: the `pv` domain.
+The `pv` domain is built as far as the cash flows go: the system, the
+self-consumption split, the EEG feed-in tariff with its regimes and the
+negative-price rule, the §12(3) UStG zero-rating, and yields either stated or
+simulated from PVGIS weather through pvlib.
+
+How much a system makes and how much of that is used on site are each a seam
+with two implementations. The stated pair — a yield in kilowatt-hours and a
+self-consumption share — needs no extra at all and runs on a bare install; the
+simulated pair reads weather and roof geometry.
+
+Next: an hourly load profile and battery dispatch, which is what turns the
+self-consumption share from a stated assumption into a computed one.
 
 ## Development
 

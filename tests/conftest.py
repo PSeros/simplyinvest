@@ -28,3 +28,9 @@ def matplotlib():
     module.use("Agg")
     pytest.importorskip("matplotlib.pyplot")
     return module
+
+
+@pytest.fixture(scope="session")
+def pvlib():
+    """pvlib, or a skip when the `pv` extra is not installed."""
+    return pytest.importorskip("pvlib")
