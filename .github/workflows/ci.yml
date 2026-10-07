@@ -27,10 +27,12 @@ jobs:
         run: uv run mypy
 
       - name: Tests
-        run: uv run pytest -q
+        # `network` is excluded: those tests check a third-party service answers,
+        # not that this package is correct.  Run them locally with -m network.
+        run: uv run pytest -q -m "not network"
 
       - name: The example notebooks still run
-        run: uv run pytest tests/docs -q
+        run: uv run pytest tests/docs -q -m "not network"
 
       - name: The wheel carries every source file and py.typed
         run: |

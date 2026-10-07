@@ -12,6 +12,17 @@ NOTEBOOKS = sorted((ROOT / "examples").glob("*.ipynb"))
 
 TIMEOUT = 300
 
+#: Dependencies an extra brings, which a plain install does not.
+OPTIONAL = frozenset({"pandas", "matplotlib", "pvlib", "openpyxl"})
+
+
+def _wants_an_extra(error: BaseException) -> bool:
+    """Whether a cell failed for want of an optional dependency."""
+    stated = str(error)
+    if "simplyinvest[" in stated:
+        return True
+    return any(f"No module named '{name}" in stated for name in OPTIONAL)
+
 
 def test_the_examples_are_notebooks() -> None:
     """A renamed or moved example must not leave the check passing vacuously."""
@@ -36,4 +47,6 @@ def test_an_example_notebook_runs(path: Path) -> None:
     try:
         client.execute()
     except nbclient.exceptions.CellExecutionError as error:
+        if _wants_an_extra(error):
+            pytest.skip(f"{path.name} — needs an optional extra: {error.ename}")
         pytest.fail(f"{path.name} — a cell raised:\n{error}")

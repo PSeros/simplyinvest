@@ -2434,6 +2434,7 @@ examples = [
     { name = "nbclient" },
     { name = "nbformat" },
     { name = "pandas" },
+    { name = "pvlib" },
 ]
 excel = [
     { name = "openpyxl" },
@@ -2471,7 +2472,7 @@ requires-dist = [
     { name = "pandas", marker = "extra == 'pv'", specifier = ">=2.2" },
     { name = "pvlib", marker = "extra == 'pv'", specifier = ">=0.11" },
     { name = "simplyinvest", extras = ["car", "pv", "viz", "frames", "excel"], marker = "extra == 'all'", editable = "." },
-    { name = "simplyinvest", extras = ["frames", "viz"], marker = "extra == 'examples'", editable = "." },
+    { name = "simplyinvest", extras = ["frames", "viz", "pv"], marker = "extra == 'examples'", editable = "." },
 ]
 provides-extras = ["car", "pv", "viz", "frames", "excel", "all", "examples"]
 
